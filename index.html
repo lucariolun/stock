@@ -10,11 +10,11 @@
 body {
   font-family: "Rounded Mplus 1c", sans-serif;
   padding: 20px;
-  background: #EFDDD5; /* ベースカラー */
+  background: #F8F3E6;
 }
 
 h1 {
-  color: #482019; /* テキストカラー */
+  color: #482019;
 }
 
 /* 追加フォーム */
@@ -44,11 +44,24 @@ h1 {
   padding: 6px 12px;
   border-radius: 6px;
   border: none;
-  background: #CF7F72; /* アクセントカラー */
+  background: #CF7F72;
   color: #fff;
   font-weight: bold;
   cursor: pointer;
 }
+
+/* 共通の item-button スタイル */
+.item-button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: left;
+  min-height: 120px;
+  border: 1px solid #ccc; /* 後で分類色が上書きする */
+  background: #fff;       /* 後で分類色が上書きする */
+  transition: background 0.3s, opacity 0.3s;
+}
+
 
 /* カテゴリ */
 .category {
@@ -74,20 +87,21 @@ h1 {
   width: 180px;
 }
 
-.item-button {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  background: #F7CFC0;
-  border: 1px solid #CF7F72;
-  text-align: left;
-  min-height: 120px;
-  transition: color 0.3s, background 0.3s;
+/* 分類1（明るめピンク） */
+button.item-button.cat1 {
+  background: #D8E8D0;
+  border: 1px solid #8FBF8F;
+}
+
+/* 分類2 */
+button.item-button.cat2 {
+  background: #D6E6F5;
+  border: 1px solid #7AA7C7;
 }
 
 .item-button.out-of-stock {
   color: #999;
-  background: #EBD7D2;
+  background: #E0DAD5;
 }
 
 .item-name {
@@ -120,6 +134,20 @@ h1 {
   cursor: pointer;
   font-weight: bold;
 }
+
+/* 削除ボタン（×） */
+.delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;        /* 背景なし */
+  border: none;            /* 枠なし */
+  color: #8a6f6f;          /* 薄いフォントカラー（落ち着いたグレー寄りピンク） */
+  font-size: 20px;
+  font-weight: normal;     /* 太字にしない */
+  cursor: pointer;
+}
+
 </style>
 </head>
 <body>
@@ -153,11 +181,19 @@ function formatMD(dateStr) {
 // 初期カテゴリ（デフォルト）
 // -----------------------------
 const defaultCategories = [
-  { name: "調味料（冷蔵庫）", items: ["醤油", "酒", "みりん", "めんつゆ", "オイスターソース", "味噌", "しょうが", "にんにく"] },
-  { name: "調味料", items: ["醤油（卓上）", "ナンプラー", "砂糖", "塩", "片栗粉", "コンソメブロック", "コンソメ顆粒", "鶏ガラ", "ごま", "すりごま"] },
-  { name: "粉類", items: ["小麦粉", "強力粉", "米粉", "パン粉"] },
-  { name: "麺", items: ["パスタ", "そば", "うどん", "そうめん", "ひやむぎ"] },
-  { name: "缶詰", items: ["ツナ", "コーン", "さば", "あずき"] }
+  { name: "調味料（冷蔵庫）", type: "default", items: ["醤油", "酒", "みりん", "めんつゆ", "オイスターソース", "味噌", "しょうが", "にんにく"] },
+  { name: "調味料", type: "default", items: ["醤油（卓上）", "ナンプラー", "砂糖", "塩", "片栗粉", "コンソメブロック", "コンソメ顆粒", "鶏ガラ", "ごま", "すりごま"] },
+  { name: "粉類", type: "default", items: ["小麦粉", "強力粉", "米粉", "パン粉"] },
+  { name: "麺", type: "default", items: ["パスタ", "そば", "うどん", "そうめん", "ひやむぎ"] },
+  { name: "缶詰", type: "default", items: ["ツナ", "コーン", "さば", "あずき"] },
+
+  /* --- 分類1（明るめピンク） --- */
+  { name: "野菜", type: "cat1", items: ["たまねぎ", "にんじん", "じゃがいも", "大根", "えりんぎ"] },
+  { name: "卵・肉・魚", type: "cat1", items: ["卵"] },
+  { name: "その他", type: "cat1", items: ["梅干し", "ジャム", "ラーメン1玉"] },
+
+  /* --- 分類2（濃いめサーモンピンク） --- */
+  { name: "冷凍", type: "cat2", items: ["えのき", "大根", "油揚げ"] }
 ];
 
 // -----------------------------
@@ -173,7 +209,7 @@ defaultCategories.forEach(defCat => {
   let savedCat = inventoryCategories.find(c => c.name === defCat.name);
 
   if (!savedCat) {
-    inventoryCategories.push({ name: defCat.name, items: [...defCat.items] });
+    inventoryCategories.push({ name: defCat.name, type: defCat.type, items: [...defCat.items] });
     savedCat = inventoryCategories.find(c => c.name === defCat.name);
   } else {
     defCat.items.forEach(item => {
@@ -237,6 +273,21 @@ function addItem() {
 }
 
 // -----------------------------
+// 削除
+// -----------------------------
+function deleteItem(categoryName, itemName) {
+  if (!confirm(`${itemName} を削除しますか？`)) return;
+
+  const category = inventoryCategories.find(c => c.name === categoryName);
+  category.items = category.items.filter(i => i !== itemName);
+
+  delete inventoryData[itemName];
+
+  saveData();
+  renderInventory();
+}
+
+// -----------------------------
 // 保存
 // -----------------------------
 function saveData() {
@@ -269,7 +320,7 @@ function renderInventory() {
       wrapper.className = "inventory-item";
 
       const button = document.createElement("button");
-      button.className = "item-button";
+      button.className = `item-button ${category.type}`;
       if (item.stock === 0) button.classList.add("out-of-stock");
 
       button.innerHTML = `
@@ -282,6 +333,15 @@ function renderInventory() {
             : ""
         }
       `;
+
+      /* 削除ボタン（分類1・分類2のみ） */
+      if (category.type === "cat1" || category.type === "cat2") {
+        const del = document.createElement("button");
+        del.className = "delete-btn";
+        del.textContent = "×";
+        del.onclick = () => deleteItem(category.name, itemName);
+        wrapper.appendChild(del);
+      }
 
       const circle = document.createElement("div");
       circle.className = "circle-buttons";
